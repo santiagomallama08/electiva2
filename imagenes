@@ -1,0 +1,75 @@
+version: '3.1'
+
+services:
+
+  base_datos:
+    image: mysql
+    # NOTE: use of "mysql_native_password" is not recommended: https://dev.mysql.com/doc/refman/8.0/en/upgrading-from-previous-series.html#upgrade-caching-sha2-password
+    # (this is just an example, not intended to be a production configuration)
+    command: --default-authentication-plugin=mysql_native_password
+    ports:
+      - 3306:3306
+    environment:
+      MYSQL_ROOT_PASSWORD: 12345
+
+  phpmyadmin:
+    image: phpmyadmin
+    restart: always
+    ports:
+      - 8080:80
+    environment:
+      - PMA_ARBITRARY=1
+
+  db:
+    image: postgres
+    restart: always
+    # set shared memory limit when using docker-compose
+    shm_size: 128mb
+    # or set shared memory limit when deploy via swarm stack
+    #volumes:
+    #  - type: tmpfs
+    #    target: /dev/shm
+    #    tmpfs:
+    #      size: 134217728 # 128*2^20 bytes = 128Mb
+    environment:
+      POSTGRES_PASSWORD: 12345
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 5432:5432
+
+pgadmin4:
+        image: elestio/pgadmin:${SOFTWARE_VERSION_TAG}
+        restart: always
+        environment:
+        PGADMIN_DEFAULT_EMAIL: ${ADMIN_EMAIL}
+        PGADMIN_DEFAULT_PASSWORD: 12345
+        PGADMIN_LISTEN_PORT: 8080
+        ports:
+        - "8081:80"
+        volumes:
+        - ./servers.json:/pgadmin4/servers.json
+
+python3:
+  web:
+    build: 
+    command: gunicorn -b 0.0.0.0:8000 todosapp.wsgi:application
+    depends_on:
+      - postgres
+    volumes:
+      - .:/usr/src/app
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgres://todoapp@postgres/todos
+node:
+    image: node:latest
+    container_name: node-container
+    restart: always
+    working_dir: /usr/src/app
+    volumes:
+      - .:/usr/src/app
+    ports:
+      - "8001:8001"
